@@ -1,0 +1,157 @@
+%{
+	#include <linux/in.h>
+    #include <linux/ip.h>
+	#include <linux/skbuff.h>
+	#include <linux/netdevice.h>
+	#include <linux/tcp.h>
+	
+#include <linux/kernel.h>
+#include <linux/kmemcheck.h>
+#include <linux/compiler.h>
+#include <linux/time.h>
+#include <linux/bug.h>
+#include <linux/cache.h>
+
+#include <linux/atomic.h>
+#include <asm/types.h>
+#include <linux/spinlock.h>
+#include <linux/net.h>
+#include <linux/textsearch.h>
+#include <net/checksum.h>
+#include <linux/rcupdate.h>
+#include <linux/dmaengine.h>
+#include <linux/hrtimer.h>
+#include <linux/dma-mapping.h>
+#include <linux/netdev_features.h>
+#include <net/flow_keys.h>
+
+%} /* <-- top level */
+
+probe begin {
+    printf("SystemTap start!\n");
+}
+
+function read_sk_buff:long(skb:long) %{ /* pure */
+    struct sk_buff *skb = (struct sk_buff *)STAP_ARG_skb;
+    STAP_RETVALUE = (long)skb;
+%} /* <-- function body */
+
+function print_skbuff_header:string(skb:long) %{	
+	struct sk_buff *skb = (struct sk_buff *)STAP_ARG_skb;		
+	snprintf(STAP_RETVALUE,MAXSTRINGLEN,"{mac_header=%#x,network_header=%#x,transport_header=%#x,len=%d,data_len=%d,data=\"%-5.5s\",tail=%#x,head=\"%-5.5s\",end=%#x}",	
+		skb->mac_header,skb->network_header,skb->transport_header,
+		skb->len,skb->data_len,
+		skb->data,skb->tail,
+		skb->head,skb->end);
+%}
+function print_skbuff_header2(skb:long){	
+	mac_header = @cast(skb,"sk_buff")->mac_header;
+	network_header = @cast(skb,"sk_buff")->network_header;
+	transport_header = @cast(skb,"sk_buff")->transport_header;
+	data = @cast(skb,"sk_buff")->data;	//buff begin
+	tail = @cast(skb,"sk_buff")->tail;	//buff end
+	head = @cast(skb,"sk_buff")->head;	//protocal begin
+	end = @cast(skb,"sk_buff")->end;	//protocal end	
+	len = @cast(skb,"sk_buff")->len;	
+	data_len = @cast(skb,"sk_buff")->data_len;
+	printf("{mac_header=%s,network_header=%s,transport_header=%s,len=%s,data_len=%s,data=%c,tail=%s,head=%c,end=%s}",
+			@cast(mac_header,"sk_buff_data_t")$$,
+			@cast(network_header,"sk_buff_data_t")$$,
+			@cast(transport_header,"sk_buff_data_t")$$,
+			@cast(len,"unsigned int")$$,
+			@cast(data_len,"unsigned int")$$,
+			data,
+			@cast(tail,"sk_buff_data_t")$$,
+			head,
+			@cast(end,"sk_buff_data_t")$$);
+}
+
+function add_skb_id_to_iovec:string(skb:long, offset:long, toiovec:long, len:long) %{
+	struct sk_buff *skb = (struct sk_buff *)STAP_ARG_skb;
+	struct tcphdr *th = tcp_hdr(skb);
+	struct iovec *toiovec = (struct iovec *)STAP_ARG_toiovec;
+	int offset = STAP_ARG_offset,len = STAP_ARG_len;
+	static char skb_id[100];
+	int start1 = skb_headlen(skb);//skb->len - skb->data_len
+	int copy1 = start1 - offset,n;
+
+	if(copy1 > len) copy1=len;
+	//snprintf(skb_id,100,"{sport:%d,dport:%d,cooper,%lld",th->source,th->dest,skb->tstamp.tv64);
+	//strlcpy(STAP_RETVALUE,skb_id,99);
+	//strncat(skb_id,skb->data+offset,copy1);
+	//if(copy_to_user(skb_id,skb->data+offset,copy1)){
+		
+	//}
+	if(th->dest == 52011 && th->syn!=1 && th->fin!=1){
+		//snprintf(skb_id,MAXSTRINGLEN,"{size:%d,len:%d,data_len:%d,offset:%d,skb->timestap:%lld}",copy1,skb->len,skb->data_len,offset,skb->tstamp.tv64);
+		n = snprintf(skb_id,MAXSTRINGLEN,"{xxxx%lldxxxx}",skb->tstamp.tv64);
+		*(int *)(skb_id+1) = 0x81828384;
+		*(int *)(skb_id+n-5) = 0x81828384;
+		memcpy(STAP_RETVALUE,skb_id,strlen(skb_id));
+		memcpy_toiovec(toiovec,skb_id,strlen(skb_id));
+	}
+%}
+
+function print_skb_port:string(skb:long) %{
+	struct sk_buff *skb = (struct sk_buff *)STAP_ARG_skb;
+	struct tcphdr *th = (struct tcphdr *)(skb->data);
+	char skb_id[100];
+	
+	snprintf(skb_id,MAXSTRINGLEN,"{sport:%d,dport:%d,syn:%d,fin:%d,tv64:%lld,data:%c}",
+			th->source,th->dest,th->syn,th->fin,skb->tstamp.tv64,*(skb->data+sizeof(struct tcphdr)));
+	strlcpy(STAP_RETVALUE,skb_id,strlen(skb_id));
+%}
+
+probe kernel.function("skb_copy_datagram_iovec") {
+	skb = pointer_arg(1);
+	offset = int_arg(2);
+	toiovec = pointer_arg(3);
+	len = int_arg(4);
+	printf("%s",add_skb_id_to_iovec(skb,offset,toiovec,len));
+}
+probe kernel.function("skb_copy_datagram_iovec").return {
+//    skb = read_sk_buff(pointer_arg(1));
+//    printf("packet data:\n%s\n", @cast(skb,"sk_buff")$$);
+    //printf("skb_copy_datagram_iovec.return :%d\n",returnval());
+}
+
+probe process("/home/quyupeng/benchmark/memcached/memcached-1.4.17-cooper/memcached").function("try_read_network@/home/quyupeng/benchmark/memcached/memcached-1.4.17-cooper/memcached.c")
+{
+	$c->skb_id_flag=1;
+}
+probe process("/home/quyupeng/benchmark/memcached/memcached-1.4.17-cooper/memcached").function("try_read_command@/home/quyupeng/benchmark/memcached/memcached-1.4.17-cooper/memcached.c")
+{
+	$c->skb_id_flag=1;
+}
+
+probe kernel.function("tcp_recvmsg").return {
+//    skb = read_sk_buff(pointer_arg(1));
+//    printf("packet data:\n%s\n", @cast(skb,"sk_buff")$$);
+    printf("tcp_recvmsg.return :%d\n",returnval());
+}
+
+probe kernel.function("__netif_receive_skb") {
+//probe kernel.statement("netif_receive_skb@net/core/dev.c+3") {
+    skb = read_sk_buff(pointer_arg(1));
+    //netdev = @cast(skb,"sk_buff")->dev;
+    //printf("__netif_receive_skb:\n%s\n", @cast(skb,"sk_buff")$$);
+    //printf("netif_receive_skb:\n%s\n%s\n", @cast(skb,"sk_buff")$$,@cast(netdev,"net_device")$$);
+	//printf("%s\n",print_skbuff_header(skb));
+}
+
+probe kernel.function("ip_rcv") {
+    skb = read_sk_buff(pointer_arg(1));
+    //netdev = @cast(skb,"sk_buff")->dev;
+    //printf("ip_rcv:\n%s\n", @cast(skb,"sk_buff")$$);
+    //printf("ip_rcv:\n%s\n%s\n", @cast(skb,"sk_buff")$$,@cast(netdev,"net_device")$$);
+	//printf("%s\n",print_skbuff_header(skb));
+}
+
+probe kernel.function("tcp_rcv_established") {
+    skb = read_sk_buff(pointer_arg(2));
+    //netdev = @cast(skb,"sk_buff")->dev;
+    //printf("tcp_rcv_established:\n%s\n", @cast(skb,"sk_buff")$$);
+    //printf("tcp_rcv_established:\n%s\n%s\n", @cast(skb,"sk_buff")$$,@cast(netdev,"net_device")$$);
+	//printf("%s\n",print_skbuff_header(skb));
+	//printf("%s\n",print_skb_port(skb));
+}
