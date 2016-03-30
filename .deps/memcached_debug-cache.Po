@@ -12,8 +12,7 @@ memcached_debug-cache.o: cache.c /usr/include/stdc-predef.h \
  /usr/include/bits/time.h /usr/include/sys/sysmacros.h \
  /usr/include/bits/pthreadtypes.h /usr/include/alloca.h \
  /usr/include/bits/stdlib-float.h /usr/include/string.h \
- /usr/include/xlocale.h /usr/include/bits/string.h \
- /usr/include/bits/string2.h /usr/include/inttypes.h \
+ /usr/include/xlocale.h /usr/include/inttypes.h \
  /usr/lib/gcc/x86_64-redhat-linux/4.8.3/include/stdint.h \
  /usr/include/stdint.h /usr/include/bits/wchar.h /usr/include/signal.h \
  /usr/include/bits/signum.h /usr/include/bits/siginfo.h \
@@ -78,10 +77,6 @@ memcached_debug-cache.o: cache.c /usr/include/stdc-predef.h \
 /usr/include/string.h:
 
 /usr/include/xlocale.h:
-
-/usr/include/bits/string.h:
-
-/usr/include/bits/string2.h:
 
 /usr/include/inttypes.h:
 

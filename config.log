@@ -632,7 +632,7 @@ configure:5391: $? = 0
 configure:5427: result: /home/quyupeng/benchmark/memcached/libevent-2.0.21-stable/inst
 configure:5446: checking for library containing umem_cache_create
 configure:5477: gcc -std=gnu99 -o conftest -g -O2 -pthread -pthread -I/home/quyupeng/benchmark/memcached/libevent-2.0.21-stable/inst/include  -L/home/quyupeng/benchmark/memcached/libevent-2.0.21-stable/inst/lib  -Wl,-rpath,/home/quyupeng/benchmark/memcached/libevent-2.0.21-stable/inst/lib conftest.c -levent  >&5
-/tmp/ccoYARev.o: In function `main':
+/tmp/ccH5xm3m.o: In function `main':
 /home/quyupeng/benchmark/memcached/memcached-1.4.17-cooper/conftest.c:32: undefined reference to `umem_cache_create'
 collect2: error: ld returned 1 exit status
 configure:5477: $? = 1
@@ -715,7 +715,7 @@ configure: failed program was:
 configure:5494: result: no
 configure:5502: checking for library containing gethugepagesizes
 configure:5533: gcc -std=gnu99 -o conftest -g -O2 -pthread -pthread -I/home/quyupeng/benchmark/memcached/libevent-2.0.21-stable/inst/include  -L/home/quyupeng/benchmark/memcached/libevent-2.0.21-stable/inst/lib  -Wl,-rpath,/home/quyupeng/benchmark/memcached/libevent-2.0.21-stable/inst/lib conftest.c -levent  >&5
-/tmp/ccIyYYSD.o: In function `main':
+/tmp/ccMPWAly.o: In function `main':
 /home/quyupeng/benchmark/memcached/memcached-1.4.17-cooper/conftest.c:32: undefined reference to `gethugepagesizes'
 collect2: error: ld returned 1 exit status
 configure:5533: $? = 1
@@ -990,7 +990,7 @@ conftest.c: In function 'main':
 conftest.c:36:11: warning: implicit declaration of function 'htonll' [-Wimplicit-function-declaration]
            return htonll(0);
            ^
-/tmp/ccpO1qGU.o: In function `main':
+/tmp/ccKHhrlX.o: In function `main':
 /home/quyupeng/benchmark/memcached/memcached-1.4.17-cooper/conftest.c:36: undefined reference to `htonll'
 collect2: error: ld returned 1 exit status
 configure:5977: $? = 1
@@ -1046,7 +1046,7 @@ configure:6058: $? = 0
 configure:6058: result: yes
 configure:6069: checking for getpagesizes
 configure:6069: gcc -std=gnu99 -o conftest -g -O2 -pthread -pthread -I/home/quyupeng/benchmark/memcached/libevent-2.0.21-stable/inst/include  -L/home/quyupeng/benchmark/memcached/libevent-2.0.21-stable/inst/lib  -Wl,-rpath,/home/quyupeng/benchmark/memcached/libevent-2.0.21-stable/inst/lib conftest.c -levent  >&5
-/tmp/ccYrf8f4.o: In function `main':
+/tmp/cciborAa.o: In function `main':
 /home/quyupeng/benchmark/memcached/memcached-1.4.17-cooper/conftest.c:60: undefined reference to `getpagesizes'
 collect2: error: ld returned 1 exit status
 configure:6069: $? = 1
@@ -1117,7 +1117,7 @@ configure: failed program was:
 configure:6069: result: no
 configure:6080: checking for memcntl
 configure:6080: gcc -std=gnu99 -o conftest -g -O2 -pthread -pthread -I/home/quyupeng/benchmark/memcached/libevent-2.0.21-stable/inst/include  -L/home/quyupeng/benchmark/memcached/libevent-2.0.21-stable/inst/lib  -Wl,-rpath,/home/quyupeng/benchmark/memcached/libevent-2.0.21-stable/inst/lib conftest.c -levent  >&5
-/tmp/cc74QJW5.o: In function `main':
+/tmp/ccwiYYzf.o: In function `main':
 /home/quyupeng/benchmark/memcached/memcached-1.4.17-cooper/conftest.c:60: undefined reference to `memcntl'
 collect2: error: ld returned 1 exit status
 configure:6080: $? = 1
@@ -1268,7 +1268,7 @@ configure:6207: $? = 0
 configure:6215: result: yes
 configure:6220: checking for setppriv
 configure:6220: gcc -std=gnu99 -o conftest -g -O2 -pthread -pthread -I/home/quyupeng/benchmark/memcached/libevent-2.0.21-stable/inst/include  -L/home/quyupeng/benchmark/memcached/libevent-2.0.21-stable/inst/lib  -Wl,-rpath,/home/quyupeng/benchmark/memcached/libevent-2.0.21-stable/inst/lib conftest.c -levent  >&5
-/tmp/ccWoFzqw.o: In function `main':
+/tmp/ccbG8Vgy.o: In function `main':
 /home/quyupeng/benchmark/memcached/memcached-1.4.17-cooper/conftest.c:66: undefined reference to `setppriv'
 collect2: error: ld returned 1 exit status
 configure:6220: $? = 1

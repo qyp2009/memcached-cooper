@@ -32,7 +32,7 @@ memcached_debug-memcached.o: memcached.c /usr/include/stdc-predef.h \
  /home/quyupeng/benchmark/memcached/libevent-2.0.21-stable/inst/include/event2/event.h \
  /usr/include/stdio.h /usr/include/libio.h /usr/include/_G_config.h \
  /usr/include/wchar.h /usr/include/bits/stdio_lim.h \
- /usr/include/bits/sys_errlist.h /usr/include/bits/stdio.h \
+ /usr/include/bits/sys_errlist.h \
  /home/quyupeng/benchmark/memcached/libevent-2.0.21-stable/inst/include/event2/event_compat.h \
  /home/quyupeng/benchmark/memcached/libevent-2.0.21-stable/inst/include/event2/buffer.h \
  /home/quyupeng/benchmark/memcached/libevent-2.0.21-stable/inst/include/event2/buffer_compat.h \
@@ -48,8 +48,7 @@ memcached_debug-memcached.o: memcached.c /usr/include/stdc-predef.h \
  /usr/include/bits/confname.h /usr/include/getopt.h protocol_binary.h \
  cache.h sasl_defs.h stats.h slabs.h assoc.h items.h trace.h hash.h \
  util.h /usr/include/sys/stat.h /usr/include/bits/stat.h \
- /usr/include/sys/un.h /usr/include/string.h /usr/include/bits/string.h \
- /usr/include/bits/string2.h /usr/include/stdlib.h /usr/include/signal.h \
+ /usr/include/sys/un.h /usr/include/string.h /usr/include/signal.h \
  /usr/include/bits/signum.h /usr/include/bits/sigaction.h \
  /usr/include/bits/sigcontext.h /usr/include/bits/sigstack.h \
  /usr/include/sys/ucontext.h /usr/include/bits/sigthread.h \
@@ -60,9 +59,9 @@ memcached_debug-memcached.o: memcached.c /usr/include/stdc-predef.h \
  /usr/include/arpa/inet.h /usr/include/errno.h /usr/include/bits/errno.h \
  /usr/include/linux/errno.h /usr/include/asm/errno.h \
  /usr/include/asm-generic/errno.h /usr/include/asm-generic/errno-base.h \
- /usr/include/bits/waitflags.h /usr/include/bits/waitstatus.h \
- /usr/include/alloca.h /usr/include/bits/stdlib-float.h \
- /usr/include/assert.h \
+ /usr/include/stdlib.h /usr/include/bits/waitflags.h \
+ /usr/include/bits/waitstatus.h /usr/include/alloca.h \
+ /usr/include/bits/stdlib-float.h /usr/include/assert.h \
  /usr/lib/gcc/x86_64-redhat-linux/4.8.3/include/limits.h \
  /usr/lib/gcc/x86_64-redhat-linux/4.8.3/include/syslimits.h \
  /usr/include/limits.h /usr/include/bits/posix1_lim.h \
@@ -188,8 +187,6 @@ config.h:
 
 /usr/include/bits/sys_errlist.h:
 
-/usr/include/bits/stdio.h:
-
 /home/quyupeng/benchmark/memcached/libevent-2.0.21-stable/inst/include/event2/event_compat.h:
 
 /home/quyupeng/benchmark/memcached/libevent-2.0.21-stable/inst/include/event2/buffer.h:
@@ -256,12 +253,6 @@ util.h:
 
 /usr/include/string.h:
 
-/usr/include/bits/string.h:
-
-/usr/include/bits/string2.h:
-
-/usr/include/stdlib.h:
-
 /usr/include/signal.h:
 
 /usr/include/bits/signum.h:
@@ -309,6 +300,8 @@ util.h:
 /usr/include/asm-generic/errno.h:
 
 /usr/include/asm-generic/errno-base.h:
+
+/usr/include/stdlib.h:
 
 /usr/include/bits/waitflags.h:
 

@@ -396,7 +396,7 @@ struct conn {
 	int skb_id_flag;
 	char *rcurr_cmd_end;
 	int rbytes_skb;
-	char tstamp_skb[25];
+	char tstamp_skb[36];
 	//cooper
 
     char   *wbuf;

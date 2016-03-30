@@ -58,9 +58,11 @@
  * //cooper
  */
 #define	SKB_EXPAND_TIMES 6
-void delete_skb_id(conn *c);
+void delete_skb_id(conn *c, char *buf, int alength);
+void delete_skb_id_res(conn *c, char *buf, int length);
 int is_finger_print(char *buf);
 int length_with_skb_id(char *buf,int length);
+int memmove_with_skb_id(conn *c, char *dest, char *source, int length);
 /*
  * forward declarations
  */
@@ -2991,8 +2993,8 @@ static void process_update_command(conn *c, token_t *tokens, const size_t ntoken
             return;
         }
     }
-
-    vlen += 2;
+    
+	vlen += 2;
     if (vlen < 0 || vlen - 2 < 0) {
         out_string(c, "CLIENT_ERROR bad command line format");
         return;
@@ -3326,7 +3328,7 @@ static void process_command(conn *c, char *command) {
     MEMCACHED_PROCESS_COMMAND_START(c->sfd, c->rcurr, c->rbytes);
 	//cooper
 	if(c->skb_id_flag)
-		delete_skb_id(c);
+		delete_skb_id(c, c->rcurr, c->rcurr_cmd_end - c->rcurr);
 	//cooper
 
     if (settings.verbose > 1)
@@ -3593,6 +3595,7 @@ static int try_read_command(conn *c) {
         }
     } else {
         char *el, *cont;
+		int el_count=1;	//cooper '\n'
 
         if (c->rbytes == 0)
             return 0;
@@ -3626,9 +3629,11 @@ static int try_read_command(conn *c) {
 
             return 0;
         }
+
         cont = el + 1;
         if ((el - c->rcurr) > 1 && *(el - 1) == '\r') {
             el--;
+			el_count++; //cooper '\r'
         }
         *el = '\0';
 
@@ -3639,7 +3644,8 @@ static int try_read_command(conn *c) {
 		}else{
 			assert(cont <= (c->rcurr + c->rbytes_skb));
 		}
-		c->rcurr_cmd_end=el;
+		if(c->skb_id_flag)
+			c->rcurr_cmd_end=el;
 		//cooper
         process_command(c, c->rcurr);
 		
@@ -3656,7 +3662,7 @@ static int try_read_command(conn *c) {
 			assert(c->rcurr <= (c->rbuf + c->rsize));
 		}else{
 			c->rbytes_skb -= (cont - c->rcurr);
-			c->rbytes -= (c->rcurr_cmd_end - c->rcurr);
+			c->rbytes -= (c->rcurr_cmd_end - c->rcurr) +el_count;
 			c->rcurr = cont;
 			assert(c->rcurr <= (c->rbuf + c->rsize*SKB_EXPAND_TIMES));
 		}	
@@ -3780,7 +3786,8 @@ static enum try_read_result try_read_network(conn *c) {
             gotdata = READ_DATA_RECEIVED;
             c->rbytes += res;
 			//cooper
-			c->rbytes_skb += length_with_skb_id(c->rbuf+c->rbytes_skb,res);	//cooper//
+			if(c->skb_id_flag)
+				c->rbytes_skb += length_with_skb_id(c->rbuf+c->rbytes_skb,res);	//cooper//
             //cooper
 			if (res == avail) {
                 continue;
@@ -3921,88 +3928,214 @@ static enum transmit_result transmit(conn *c) {
 int is_finger_print(char *buf){
 	return 0x81828384 == *(int *)buf ? 1 :0;
 }
-//source:{xxxx1423173827359xxxx}abcdefgh{xxxx1423173827360xxxx}mnopqrst
-//dest:abcdefghmnopqrst
-//delete skb id in first cmd of c->rcurr
-void delete_skb_id(conn *c){	
+
+int memmove_with_skb_id(conn *c, char *dest, char *source, int length){
 	int i,j,k;
-	int alength = c->rcurr_cmd_end - c->rcurr;
-	int skb_begin,data_begin;
+	int skb_begin;
 	int skb_id_flag;
-	char *buf=c->rcurr,*s=c->tstamp_skb;
+	char *d=dest, *s=source, *ts=c->tstamp_skb;
 
 	i=j=0;
-	skb_begin=data_begin=0;
+	skb_begin=0;
 	skb_id_flag=0;
 
-	if(buf[0]!='{'){
-		printf("skb:%s\n",s);
+	if(s[0]!='{'){
+        if (settings.verbose > 0) 
+			fprintf(stderr, "skb:%s\n", ts);
 	}
-	while(i<alength){
+	while(j<length){
 		if(!skb_id_flag){	//data
-			if(buf[i]=='{' && is_finger_print(buf+i+1) ){
-				if(j < data_begin ){
+			if(s[i]=='{' && is_finger_print(s+i+1) ){
+				/*if(j < data_begin ){
 					memcpy(buf+j, buf+data_begin, i - data_begin);
 					j += i - data_begin;
-				}
+				}*/
 				
 				skb_begin=i+5;
 				skb_id_flag = 1;
 				
 				i+=5;
 			}else{
+				if(d+j != s+i)
+					d[j] = s[i];
 				i++;
+				j++;
 			}
 		}else{				//skb_id
-			if(buf[i]==(char)0x84 &&  is_finger_print(buf+i) ) {
-				k = i - skb_begin;
-				snprintf(s,50,"%*.*s",k,k,buf+skb_begin);
-				printf("skb:%s\n",s);
-				
-				data_begin=i+5;
+			if(s[i]==(char)0x84 &&  is_finger_print(s+i) ) {
+                if (settings.verbose > 0) {
+					k = i - skb_begin;
+					snprintf(ts,50,"%*.*s",k,k,s+skb_begin);
+					fprintf(stderr,"skb:%s\n",ts);
+				}
 				skb_id_flag =0;
 				
-				i += 5;
+				i+=5;
 			}else{
 				i++;
 			}
 		}
 	}
+	/*
 	if(j < data_begin ){
 		memcpy(buf+j, buf+data_begin, i - data_begin);
 		j += i - data_begin;
 	}
+	*/
+	d[j]='\0';
+		
+    if (settings.verbose > 2) {
+		fprintf(stderr, "data_with_skb:%*.*s\n",i,i,s);
+		fprintf(stderr, "data_no_skb:%*.*s\n",j,j,d);
+	}
+	return i;
+}
+
+void delete_skb_id_res(conn *c, char *buf, int length){	
+	int i,j,k;
+	int skb_begin;
+	int skb_id_flag;
+	char *ts=c->tstamp_skb;
+
+	i=j=0;
+	skb_begin=0;
+	skb_id_flag=0;
+    
+	if (settings.verbose > 2)
+		fprintf(stderr, "data_with_skb:%s\n", buf);
+
+	if(buf[0]!='{'){
+        if (settings.verbose > 0) 
+			fprintf(stderr, "skb:%s\n", ts);
+	}
+	while(j<length){
+		if(!skb_id_flag){	//data
+			if(buf[i]=='{' && is_finger_print(buf+i+1) ){
+				/*if(j < data_begin ){
+					memcpy(buf+j, buf+data_begin, i - data_begin);
+					j += i - data_begin;
+				}*/
+				
+				skb_begin=i+5;
+				skb_id_flag = 1;
+				
+				i+=5;
+			}else{
+				if(j<i)
+					buf[j] = buf[i];
+				i++;
+				j++;
+			}
+		}else{				//skb_id
+			if(buf[i]==(char)0x84 &&  is_finger_print(buf+i) ) {
+                if (settings.verbose > 0) {
+					k = i - skb_begin;
+					snprintf(ts,50,"%*.*s",k,k,buf+skb_begin);
+					fprintf(stderr,"skb:%s\n",ts);
+				}
+				skb_id_flag =0;
+				
+				i+=5;
+			}else{
+				i++;
+			}
+		}
+	}
+	/*
+	if(j < data_begin ){
+		memcpy(buf+j, buf+data_begin, i - data_begin);
+		j += i - data_begin;
+	}
+	*/
 	buf[j]='\0';
-	c->rcurr_cmd_end = buf + j;
-	printf("cmd:%s\n",buf);
+    if (settings.verbose > 2)
+		fprintf(stderr, "data_no_skb:%*.*s\n", j,j,buf);
+}
+//source:{xxxx1423173827359xxxx}abcdefgh{xxxx1423173827360xxxx}mnopqrst
+//dest:abcdefghmnopqrst
+//delete skb id in first cmd of c->rcurr
+void delete_skb_id(conn *c, char *buf, int alength){	
+	int i,j,k;
+	int skb_begin;
+	int skb_id_flag;
+	char *ts=c->tstamp_skb;
+
+	i=j=0;
+	skb_begin=0;
+	skb_id_flag=0;
+
+	if(buf[0]!='{'){
+        if (settings.verbose > 0) 
+			fprintf(stderr, "skb:%s\n", ts);
+	}
+	while(i<alength){
+		if(!skb_id_flag){	//data
+			if(buf[i]=='{' && is_finger_print(buf+i+1) ){
+				/*if(j < data_begin ){
+					memcpy(buf+j, buf+data_begin, i - data_begin);
+					j += i - data_begin;
+				}*/
+				
+				skb_begin=i+5;
+				skb_id_flag = 1;
+				
+				i+=5;
+			}else{
+				if(j<i)
+					buf[j] = buf[i];
+				i++;
+				j++;
+			}
+		}else{				//skb_id
+			if(buf[i]==(char)0x84 &&  is_finger_print(buf+i) ) {
+                if (settings.verbose > 0) {
+					k = i - skb_begin;
+					snprintf(ts,50,"%*.*s",k,k,buf+skb_begin);
+					fprintf(stderr,"skb:%s\n",ts);
+				}
+				skb_id_flag =0;
+				
+				i+=5;
+			}else{
+				i++;
+			}
+		}
+	}
+	/*
+	if(j < data_begin ){
+		memcpy(buf+j, buf+data_begin, i - data_begin);
+		j += i - data_begin;
+	}
+	*/
+	if(j < alength){
+		buf[j]='\0';
+		c->rcurr_cmd_end = buf + j;
+	}
+    if (settings.verbose > 0)
+		fprintf(stderr, "cmd:%s\n", buf);
 }
 
-//copy from source to dest,length bytes after skb_id delete
-/*void memmove_with_skb_id(conn *c,char *dest, char *source, int length){	
-
-}
-*/
 int length_with_skb_id(char *buf,int length){
-	int i,len,k;
+	int i,len;
 	int skb_id_flag=0;
-	for(i=len=0;len<length;){
+
+	i=len=0;
+	while(len<length){
 		if(!skb_id_flag){ 
 			if(buf[i]=='{' && is_finger_print(buf+i+1) ){
 				i+=5;
 				skb_id_flag = 1;
-				k=0;
 			}else{
 				len++;
 				i++;
 			}
 		}else{
-			if(buf[i+k]==(char)0x84 &&  is_finger_print(buf+i+k) ) {
+			if(buf[i]==(char)0x84 &&  is_finger_print(buf+i) ) {
 				//printf("%*.*s\n",k,k,buf+i);
-				i += k+5;
+				i += 5;
 				skb_id_flag =0;
-				k=0;
 			}else{
-				k++;
+				i++;
 			}
 		}
 	}
@@ -4168,7 +4301,7 @@ static void drive_machine(conn *c) {
             /* first check if we have leftovers in the conn_read buffer */
             if (c->rbytes > 0) {
                 int tocopy = c->rbytes > c->rlbytes ? c->rlbytes : c->rbytes;
-				
+				/*	
                 if (c->ritem != c->rcurr) {
                     memmove(c->ritem, c->rcurr, tocopy);
                 }
@@ -4176,9 +4309,8 @@ static void drive_machine(conn *c) {
                 c->rlbytes -= tocopy;
                 c->rcurr += tocopy;
                 c->rbytes -= tocopy;
-                
+                */
 				//cooper
-				/*
 				if(!c->skb_id_flag){
                 	if (c->ritem != c->rcurr) {
                 	    memmove(c->ritem, c->rcurr, tocopy);
@@ -4188,30 +4320,28 @@ static void drive_machine(conn *c) {
                 	c->rcurr += tocopy;
                 	c->rbytes -= tocopy;
 				}else{
-					int tocopy;
+					int tocopy_skb;
 					//no skb_id
 					if(c->rbytes == c->rbytes_skb){
 						tocopy_skb = tocopy;
 						memmove(c->ritem, c->rcurr, tocopy);	
 					}else{//exist skb_id
-						tocopy_skb = length_with_skb_id(c->rcurr,tocopy);
+						tocopy_skb = length_with_skb_id(c->rcurr, tocopy);
 						//no skb_id in tocopy extent
 						if(tocopy == tocopy_skb){
 							memmove(c->ritem, c->rcurr, tocopy);
 						}else{
-							memmove_with_skb(c->ritem, c->rcurr, tocopy);
+							memmove_with_skb_id(c, c->ritem, c->rcurr, tocopy);
 						}
 					}
-					memmove_delete_skb(c->ritem,rcurr,tocopy);
 					c->ritem += tocopy;
 					c->rlbytes -= tocopy;
 					c->rcurr += tocopy_skb;
 					c->rbytes -= tocopy;
 					c->rbytes_skb -= tocopy_skb;
 				}	
-				*/
 				//cooper
-
+				
 				if (c->rlbytes == 0) {
                     break;
                 }
@@ -4223,6 +4353,10 @@ static void drive_machine(conn *c) {
                 pthread_mutex_lock(&c->thread->stats.mutex);
                 c->thread->stats.bytes_read += res;
                 pthread_mutex_unlock(&c->thread->stats.mutex);
+				//cooper
+				if(c->skb_id_flag)
+					delete_skb_id_res(c, c->ritem, res);	
+				//cooper
                 if (c->rcurr == c->ritem) {
                     c->rcurr += res;
                 }

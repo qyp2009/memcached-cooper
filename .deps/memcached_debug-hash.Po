@@ -31,7 +31,7 @@ memcached_debug-hash.o: hash.c /usr/include/stdc-predef.h memcached.h \
  /home/quyupeng/benchmark/memcached/libevent-2.0.21-stable/inst/include/event2/event.h \
  /usr/include/stdio.h /usr/include/libio.h /usr/include/_G_config.h \
  /usr/include/wchar.h /usr/include/bits/stdio_lim.h \
- /usr/include/bits/sys_errlist.h /usr/include/bits/stdio.h \
+ /usr/include/bits/sys_errlist.h \
  /home/quyupeng/benchmark/memcached/libevent-2.0.21-stable/inst/include/event2/event_compat.h \
  /home/quyupeng/benchmark/memcached/libevent-2.0.21-stable/inst/include/event2/buffer.h \
  /home/quyupeng/benchmark/memcached/libevent-2.0.21-stable/inst/include/event2/buffer_compat.h \
@@ -165,8 +165,6 @@ config.h:
 /usr/include/bits/stdio_lim.h:
 
 /usr/include/bits/sys_errlist.h:
-
-/usr/include/bits/stdio.h:
 
 /home/quyupeng/benchmark/memcached/libevent-2.0.21-stable/inst/include/event2/event_compat.h:
 
