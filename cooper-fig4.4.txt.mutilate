@@ -1,0 +1,14 @@
+[quyupeng@hw203 mutilate-master]$ ./run.sh -s 172.18.11.204 -T 1 -c 1 -q 1 -t 5 -r 5 --valuesize=16384
+#type       avg     std     min     5th    10th    90th    95th    99th
+read      711.3   139.9   490.4   500.2   510.0   920.8   938.2   952.1
+update      0.0     0.0     0.0     0.0     0.0     0.0     0.0     0.0
+op_q        1.0     0.0     1.0     1.0     1.0     1.1     1.1     1.1
+
+Total QPS = 0.8 (4 / 5.0s)
+
+Misses = 0 (0.0%)
+Skipped TXs = 0 (0.0%)
+
+RX      65732 bytes :    0.0 MB/s
+TX        144 bytes :    0.0 MB/s
+

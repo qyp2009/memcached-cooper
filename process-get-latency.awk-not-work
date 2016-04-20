@@ -1,0 +1,24 @@
+#!/usr/bin/awk
+
+BEGIN {
+	begin_raw=0;
+	begin=0;
+	end=0;
+}
+
+$1=="cmd:set"||$1=="cmd:get" {printf("%s",$0);} 
+
+$1=="timestamp_user:"{
+	begin_raw=$3;
+	begin=$4;
+	end=$5;
+}
+
+$1=="timestamp_kernel:"{
+	printf("\n%s %s %s %s", $3, $5-$4, $6-$5, begin_raw-$6);
+} 
+
+$1=="end_cmd"{
+	printf(" %s\n",end-begin_raw);
+}
+
