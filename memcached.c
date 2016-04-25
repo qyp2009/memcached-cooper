@@ -55,22 +55,16 @@
 #endif
 
 //cooper
-typedef signed int s32;
-typedef long long s64;
-#define NSEC_PER_SEC	1000000000L
-typedef union {
-	s64 tv64;
-	struct {
-		s32 nsec,sec;
-	}tv;
-}cooper_ktime_t;
 
 #define	SKB_EXPAND_TIMES 6
-void delete_skb_id(conn *c, char *buf, int alength);
-void delete_skb_id_res(conn *c, char *buf, int length);
+void delete_skb_id_alen(conn *c, char *buf, int alength);
+void delete_skb_id_len(conn *c, char *buf, int length);
 int is_finger_print(char *buf);
-int length_with_skb_id(char *buf,int length);
+int length_with_skb_id(conn *c, char *buf,int length);
 int memmove_with_skb_id(conn *c, char *dest, char *source, int length);
+
+s64 get_timestamp(cooper_ktime_t *tstamp);
+
 //cooper
 
 /*
@@ -249,6 +243,7 @@ static void settings_init(void) {
     settings.shutdown_command = false;
     settings.tail_repair_time = TAIL_REPAIR_TIME_DEFAULT;
     settings.flush_enabled = true;
+	settings.skb_id_flag=false;
 }
 
 /*
@@ -468,7 +463,7 @@ conn *conn_new(const int sfd, enum conn_states init_state,
     c->cmd = -1;
     c->rbytes = c->wbytes = 0;
 	//cooper
-	c->skb_id_flag=0;
+	c->skb_id_flag=(settings.skb_id_flag==true ? 1:0);
 	c->rbytes_skb = 0;
 	c->rcurr_cmd_end = c->rbuf;
 	//cooper
@@ -3338,14 +3333,14 @@ static void process_command(conn *c, char *command) {
     MEMCACHED_PROCESS_COMMAND_START(c->sfd, c->rcurr, c->rbytes);
 	//cooper
 	if(c->skb_id_flag){
-		delete_skb_id(c, c->rcurr, c->rcurr_cmd_end - c->rcurr);	
 		if(settings.verbose > 0){
-			struct timespec ts;
-			cooper_ktime_t tstamp;
-			
-			clock_gettime(CLOCK_REALTIME, &ts);
-			tstamp.tv64 = (s64)ts.tv_sec * NSEC_PER_SEC + (s64)ts.tv_nsec ;
-			fprintf(stderr, "begin_cmd timestamp: %lld \"%s\"\n", tstamp.tv64, c->rcurr);
+			//fprintf(stderr, "begin_cmd timestamp: %lld \"%s\"\n", tstamp.tv64, c->rcurr);
+			fprintf(c->thread->fp, "begin_cmd timestamp: %lld\n", get_timestamp(&(c->tstamp_req)) );
+			fprintf(c->thread->fp, "delete_id_cmd timestamp(begin): %lld\n", get_timestamp(&(c->tstamp_req)));
+		}
+		delete_skb_id_alen(c, c->rcurr, c->rcurr_cmd_end - c->rcurr);	
+		if(settings.verbose > 0){
+			fprintf(c->thread->fp, "delete_id_cmd timestamp(end): %lld\n", get_timestamp(&(c->tstamp_req)));
 		}
 	}
 	//cooper
@@ -3666,12 +3661,8 @@ static int try_read_command(conn *c) {
 		if(c->skb_id_flag){
 			c->rcurr_cmd_end=el;
 			if(settings.verbose > 0){
-				struct timespec ts;
-				cooper_ktime_t tstamp;
-				
-				clock_gettime(CLOCK_REALTIME, &ts);
-				tstamp.tv64 = (s64)ts.tv_sec * NSEC_PER_SEC + (s64)ts.tv_nsec ;
-				fprintf(stderr, "begin_cmd_raw timestamp: %lld\n", tstamp.tv64);
+				//fprintf(stderr, "begin_cmd_raw timestamp: %lld\n", tstamp.tv64);
+				//fprintf(c->thread->fp, "begin_cmd_raw timestamp: %lld\n", get_timestamp(&(c->tstamp_req)));
 			}
 		}
 		//cooper
@@ -3815,7 +3806,7 @@ static enum try_read_result try_read_network(conn *c) {
             c->rbytes += res;
 			//cooper
 			if(c->skb_id_flag)
-				c->rbytes_skb += length_with_skb_id(c->rbuf+c->rbytes_skb,res);	//cooper//
+				c->rbytes_skb += length_with_skb_id(c, c->rbuf+c->rbytes_skb, res);	//cooper//
             //cooper
 			if (res == avail) {
                 continue;
@@ -3953,6 +3944,15 @@ static enum transmit_result transmit(conn *c) {
 }
 //cooper
 
+s64 get_timestamp(cooper_ktime_t *tstamp){
+	struct timespec ts;
+	
+	clock_gettime(CLOCK_REALTIME, &ts);
+	tstamp->tv64 = (s64)ts.tv_sec * NSEC_PER_SEC + (s64)ts.tv_nsec ;
+
+	return tstamp->tv64;
+}
+
 int is_finger_print(char *buf){
 	return 0x81828384 == *(int *)buf ? 1 :0;
 }
@@ -3968,9 +3968,17 @@ int memmove_with_skb_id(conn *c, char *dest, char *source, int length){
 	skb_id_flag=0;
 
 	if(s[0]!='{'){
-        if (settings.verbose > 0) 
-			fprintf(stderr, "skb_for_data skb_id: %s\n", ts);
+        if (settings.verbose > 0) { 
+			//fprintf(stderr, "skb_for_data skb_id: %s\n", ts);
+			fprintf(c->thread->fp, "skb_for_data skb_id: %s\n", ts);
+		}
 	}
+
+	if(c->rbytes == c->rbytes_skb) {
+		memmove(dest,source,length);
+		return length;
+	}
+
 	while(j<length){
 		if(!skb_id_flag){	//data
 			if(s[i]=='{' && is_finger_print(s+i+1) ){
@@ -3994,7 +4002,8 @@ int memmove_with_skb_id(conn *c, char *dest, char *source, int length){
                 if (settings.verbose > 0) {
 					k = i - skb_begin;
 					snprintf(ts,50,"%*.*s",k,k,s+skb_begin);
-					fprintf(stderr,"skb_for_data skb_id: %s\n",ts);
+					//fprintf(stderr,"skb_for_data skb_id: %s\n",ts);
+					fprintf(c->thread->fp,"skb_for_data skb_id: %s\n",ts);
 				}
 				skb_id_flag =0;
 				
@@ -4019,7 +4028,7 @@ int memmove_with_skb_id(conn *c, char *dest, char *source, int length){
 	return i;
 }
 
-void delete_skb_id_res(conn *c, char *buf, int length){	
+void delete_skb_id_len(conn *c, char *buf, int length){	
 	int i,j,k;
 	int skb_begin;
 	int skb_id_flag;
@@ -4033,8 +4042,10 @@ void delete_skb_id_res(conn *c, char *buf, int length){
 		fprintf(stderr, "data_with_skb:%s\n", buf);
 
 	if(buf[0]!='{'){
-        if (settings.verbose > 0) 
-			fprintf(stderr, "skb for data:%s\n", ts);
+        if (settings.verbose > 0) {
+			//fprintf(stderr, "skb_for_data skb_id: %s\n", ts);
+			fprintf(c->thread->fp, "skb_for_data skb_id: %s\n", ts);
+		}
 	}
 	while(j<length){
 		if(!skb_id_flag){	//data
@@ -4059,7 +4070,8 @@ void delete_skb_id_res(conn *c, char *buf, int length){
                 if (settings.verbose > 0) {
 					k = i - skb_begin;
 					snprintf(ts,50,"%*.*s",k,k,buf+skb_begin);
-					fprintf(stderr,"skb for data:%s\n",ts);
+					//fprintf(stderr,"skb_for_data skb_id: %s\n",ts);
+					fprintf(c->thread->fp,"skb_for_data skb_id: %s\n",ts);
 				}
 				skb_id_flag =0;
 				
@@ -4082,7 +4094,7 @@ void delete_skb_id_res(conn *c, char *buf, int length){
 //source:{xxxx1423173827359xxxx}abcdefgh{xxxx1423173827360xxxx}mnopqrst
 //dest:abcdefghmnopqrst
 //delete skb id in first cmd of c->rcurr
-void delete_skb_id(conn *c, char *buf, int alength){	
+void delete_skb_id_alen(conn *c, char *buf, int alength){	
 	int i,j,k;
 	int skb_begin;
 	int skb_id_flag;
@@ -4093,9 +4105,14 @@ void delete_skb_id(conn *c, char *buf, int alength){
 	skb_id_flag=0;
 
 	if(buf[0]!='{'){
-        if (settings.verbose > 0) 
-			fprintf(stderr, "skb_for_cmd skb_id: %s\n", ts);
+        if (settings.verbose > 0){ 
+			//fprintf(stderr, "skb_for_cmd skb_id: %s\n", ts);
+			fprintf(c->thread->fp, "skb_for_cmd skb_id: %s\n", ts);
+		}
 	}
+	
+	if(c->rbytes == c->rbytes_skb) return;
+
 	while(i<alength){
 		if(!skb_id_flag){	//data
 			if(buf[i]=='{' && is_finger_print(buf+i+1) ){
@@ -4119,7 +4136,8 @@ void delete_skb_id(conn *c, char *buf, int alength){
                 if (settings.verbose > 0) {
 					k = i - skb_begin;
 					snprintf(ts,50,"%*.*s",k,k,buf+skb_begin);
-					fprintf(stderr,"skb_for_cmd skb_id: %s\n",ts);
+					//fprintf(stderr,"skb_for_cmd skb_id: %s\n",ts);
+					fprintf(c->thread->fp,"skb_for_cmd skb_id: %s\n",ts);
 				}
 				skb_id_flag =0;
 				
@@ -4139,14 +4157,19 @@ void delete_skb_id(conn *c, char *buf, int alength){
 		buf[j]='\0';
 		c->rcurr_cmd_end = buf + j;
 	}
-    if (settings.verbose > 0)
-		fprintf(stderr, "cmd_begin: %s\n", buf);
+    if (settings.verbose > 0) {
+		//fprintf(stderr, "cmd: %s\n", buf);
+		fprintf(c->thread->fp, "cmd: %s\n", buf);
+	}
 }
 
-int length_with_skb_id(char *buf,int length){
+int length_with_skb_id(conn *c, char *buf, int length){
 	int i,len;
 	int skb_id_flag=0;
-
+	
+	/*if(settings.verbose > 0){
+		fprintf(c->thread->fp, "length_id timestamp(begin): %lld\n", get_timestamp(&(c->tstamp_req)));
+	}*/
 	i=len=0;
 	while(len<length){
 		if(!skb_id_flag){ 
@@ -4167,6 +4190,9 @@ int length_with_skb_id(char *buf,int length){
 			}
 		}
 	}
+	/*if(settings.verbose > 0){
+		fprintf(c->thread->fp, "length_id timestamp(end): %lld\n", get_timestamp(&(c->tstamp_req)));
+	}*/
 	return i;
 }
 //cooper
@@ -4349,19 +4375,27 @@ static void drive_machine(conn *c) {
                 	c->rbytes -= tocopy;
 				}else{
 					int tocopy_skb;
-					if (settings.verbose > 0)
-						fprintf(stderr, "skb_for_data skb_id: %s\n", c->tstamp_skb);
+					if (settings.verbose > 0){
+						//fprintf(stderr, "skb_for_data skb_id: %s\n", c->tstamp_skb);
+						fprintf(c->thread->fp, "skb_for_data skb_id: %s\n", c->tstamp_skb);
+					}
 					//no skb_id
 					if(c->rbytes == c->rbytes_skb){
 						tocopy_skb = tocopy;
 						memmove(c->ritem, c->rcurr, tocopy);	
 					}else{//exist skb_id
-						tocopy_skb = length_with_skb_id(c->rcurr, tocopy);
+						tocopy_skb = length_with_skb_id(c, c->rcurr, tocopy);
 						//no skb_id in tocopy extent
 						if(tocopy == tocopy_skb){
 							memmove(c->ritem, c->rcurr, tocopy);
 						}else{
+							if(settings.verbose > 0){
+								fprintf(c->thread->fp, "delete_id_move timestamp(begin): %lld\n", get_timestamp(&(c->tstamp_req)));
+							}
 							memmove_with_skb_id(c, c->ritem, c->rcurr, tocopy);
+							if(settings.verbose > 0){
+								fprintf(c->thread->fp, "delete_id_move timestamp(end): %lld\n", get_timestamp(&(c->tstamp_req)));
+							}
 						}
 					}
 					c->ritem += tocopy;
@@ -4384,8 +4418,15 @@ static void drive_machine(conn *c) {
                 c->thread->stats.bytes_read += res;
                 pthread_mutex_unlock(&c->thread->stats.mutex);
 				//cooper
-				if(c->skb_id_flag)
-					delete_skb_id_res(c, c->ritem, res);	
+				if(c->skb_id_flag){	
+					if(settings.verbose > 0){
+						fprintf(c->thread->fp, "delete_id_data timestamp(begin): %lld\n", get_timestamp(&(c->tstamp_req)));
+					}
+					delete_skb_id_len(c, c->ritem, res);	
+					if(settings.verbose > 0){
+						fprintf(c->thread->fp, "delete_if_data timestamp(end): %lld\n", get_timestamp(&(c->tstamp_req)));
+					}
+				}
 				//cooper
                 if (c->rcurr == c->ritem) {
                     c->rcurr += res;
@@ -4514,12 +4555,8 @@ static void drive_machine(conn *c) {
 					//cooper
 					//get,gets
 					if(c->skb_id_flag == 1 && settings.verbose > 0){
-						struct timespec ts;
-						cooper_ktime_t tstamp;
-						
-						clock_gettime(CLOCK_REALTIME, &ts);
-						tstamp.tv64 = (s64)ts.tv_sec * NSEC_PER_SEC + (s64)ts.tv_nsec ;
-						fprintf(stderr, "end_cmd timestamp: %lld\n", tstamp.tv64);
+						//fprintf(stderr, "end_cmd timestamp: %lld\n", get_timestamp());
+						fprintf(c->thread->fp, "end_cmd timestamp: %lld\n\n", get_timestamp(&(c->tstamp_req)));
 					}
 					//cooper
                 } else if (c->state == conn_write) {
@@ -4531,12 +4568,8 @@ static void drive_machine(conn *c) {
 					//cooper
 					//set,add,replace,append,prepend
 					if(c->skb_id_flag == 1 &&settings.verbose > 0){
-						struct timespec ts;
-						cooper_ktime_t tstamp;
-						
-						clock_gettime(CLOCK_REALTIME, &ts);
-						tstamp.tv64 = (s64)ts.tv_sec * NSEC_PER_SEC + (s64)ts.tv_nsec ;
-						fprintf(stderr, "end_cmd timestamp: %lld\n", tstamp.tv64);
+						//fprintf(stderr, "end_cmd timestamp: %lld\n", tstamp.tv64);
+						fprintf(c->thread->fp, "end_cmd timestamp: %lld\n\n", get_timestamp(&(c->tstamp_req)));
 					}
 					//cooper
                 } else {
@@ -5323,9 +5356,15 @@ int main (int argc, char **argv) {
           "S"   /* Sasl ON */
           "F"   /* Disable flush_all */
           "o:"  /* Extended generic options */
+		  "e"	//cooper
         ))) {
         switch (c) {
-        case 'A':
+		//cooper
+		case 'e':
+			settings.skb_id_flag=true;
+			break;
+		//cooper
+		case 'A':
             /* enables "shutdown" command */
             settings.shutdown_command = true;
             break;

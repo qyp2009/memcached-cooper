@@ -2,10 +2,10 @@ memcached-util.o: util.c /usr/include/stdc-predef.h /usr/include/stdio.h \
  /usr/include/features.h /usr/include/sys/cdefs.h \
  /usr/include/bits/wordsize.h /usr/include/gnu/stubs.h \
  /usr/include/gnu/stubs-64.h \
- /usr/lib/gcc/x86_64-redhat-linux/4.8.3/include/stddef.h \
+ /usr/lib/gcc/x86_64-redhat-linux/4.8.5/include/stddef.h \
  /usr/include/bits/types.h /usr/include/bits/typesizes.h \
  /usr/include/libio.h /usr/include/_G_config.h /usr/include/wchar.h \
- /usr/lib/gcc/x86_64-redhat-linux/4.8.3/include/stdarg.h \
+ /usr/lib/gcc/x86_64-redhat-linux/4.8.5/include/stdarg.h \
  /usr/include/bits/stdio_lim.h /usr/include/bits/sys_errlist.h \
  /usr/include/assert.h /usr/include/ctype.h /usr/include/endian.h \
  /usr/include/bits/endian.h /usr/include/bits/byteswap.h \
@@ -20,9 +20,9 @@ memcached-util.o: util.c /usr/include/stdc-predef.h /usr/include/stdio.h \
  /usr/include/bits/time.h /usr/include/sys/sysmacros.h \
  /usr/include/bits/pthreadtypes.h /usr/include/alloca.h \
  /usr/include/bits/stdlib-float.h memcached.h config.h \
- /usr/lib/gcc/x86_64-redhat-linux/4.8.3/include/stdbool.h \
+ /usr/lib/gcc/x86_64-redhat-linux/4.8.5/include/stdbool.h \
  /usr/include/inttypes.h \
- /usr/lib/gcc/x86_64-redhat-linux/4.8.3/include/stdint.h \
+ /usr/lib/gcc/x86_64-redhat-linux/4.8.5/include/stdint.h \
  /usr/include/stdint.h /usr/include/bits/wchar.h \
  /usr/include/sys/socket.h /usr/include/sys/uio.h /usr/include/bits/uio.h \
  /usr/include/bits/socket.h /usr/include/bits/socket_type.h \
@@ -67,7 +67,7 @@ memcached-util.o: util.c /usr/include/stdc-predef.h /usr/include/stdio.h \
 
 /usr/include/gnu/stubs-64.h:
 
-/usr/lib/gcc/x86_64-redhat-linux/4.8.3/include/stddef.h:
+/usr/lib/gcc/x86_64-redhat-linux/4.8.5/include/stddef.h:
 
 /usr/include/bits/types.h:
 
@@ -79,7 +79,7 @@ memcached-util.o: util.c /usr/include/stdc-predef.h /usr/include/stdio.h \
 
 /usr/include/wchar.h:
 
-/usr/lib/gcc/x86_64-redhat-linux/4.8.3/include/stdarg.h:
+/usr/lib/gcc/x86_64-redhat-linux/4.8.5/include/stdarg.h:
 
 /usr/include/bits/stdio_lim.h:
 
@@ -143,11 +143,11 @@ memcached.h:
 
 config.h:
 
-/usr/lib/gcc/x86_64-redhat-linux/4.8.3/include/stdbool.h:
+/usr/lib/gcc/x86_64-redhat-linux/4.8.5/include/stdbool.h:
 
 /usr/include/inttypes.h:
 
-/usr/lib/gcc/x86_64-redhat-linux/4.8.3/include/stdint.h:
+/usr/lib/gcc/x86_64-redhat-linux/4.8.5/include/stdint.h:
 
 /usr/include/stdint.h:
 

@@ -17,7 +17,8 @@ cd /home/quyupeng/systemtap/
 cd /home/quyupeng/benchmark/memcached/memcached-1.4.17-cooper
 
 #process user timestamp
-awk -f process-get-user-latency.awk ${1}.txt > ${1}.txt.out
+cp cooper-thread-0.txt ${1}.txt
+awk -f ./process-get-user-latency.awk ${1}.txt > ${1}.txt.out
 awk -f ./process-join-user-kernel.awk /home/quyupeng/systemtap/${1}.txt.out ./${1}.txt.out > ${1}.txt.out.join
 ./process-get-latency.sh ${1}.txt.out.join >${1}.result
     if [[ $? != 0 ]]; then

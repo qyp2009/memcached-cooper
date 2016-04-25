@@ -23,6 +23,21 @@
 
 #include "sasl_defs.h"
 
+//cooper
+
+typedef signed int s32;
+typedef long long s64;
+#define NSEC_PER_SEC	1000000000L
+typedef union {
+	s64 tv64;
+	struct {
+		s32 nsec,sec;
+	}tv;
+}cooper_ktime_t;
+
+//cooper
+
+
 /** Maximum length of a key. */
 #define KEY_MAX_LENGTH 250
 
@@ -314,6 +329,7 @@ struct settings {
     bool shutdown_command; /* allow shutdown command */
     int tail_repair_time;   /* LRU tail refcount leak repair time */
     bool flush_enabled;     /* flush_all enabled */
+	bool skb_id_flag;	//cooper
 };
 
 extern struct stats stats;
@@ -366,6 +382,7 @@ typedef struct {
     cache_t *suffix_cache;      /* suffix cache */
     uint8_t item_lock_type;     /* use fine-grained or global item lock */
 	//char *buffer;		//cooper
+	FILE *fp;			//cooper
 } LIBEVENT_THREAD;
 
 typedef struct {
@@ -397,6 +414,7 @@ struct conn {
 	char *rcurr_cmd_end;
 	int rbytes_skb;
 	char tstamp_skb[36];
+	cooper_ktime_t tstamp_req;
 	//cooper
 
     char   *wbuf;

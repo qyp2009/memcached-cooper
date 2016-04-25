@@ -823,6 +823,9 @@ void thread_init(int nthreads, struct event_base *main_base) {
     
 	dispatcher_thread.base = main_base;
     dispatcher_thread.thread_id = pthread_self();
+	//cooper
+	system("rm -rf ./cooper-thread-*");
+	//cooper
 
     for (i = 0; i < nthreads; i++) {
         int fds[2];
@@ -830,7 +833,7 @@ void thread_init(int nthreads, struct event_base *main_base) {
             perror("Can't create notify pipe");
             exit(1);
         }
-
+		
         threads[i].notify_receive_fd = fds[0];
         threads[i].notify_send_fd = fds[1];
 		
@@ -844,6 +847,16 @@ void thread_init(int nthreads, struct event_base *main_base) {
     	    perror("Can't allocate thread buffer");
     	    exit(1);
     	}*/
+		{
+			FILE *fp;
+			char filename[5];
+			sprintf(filename,"cooper-thread-%d.txt",i);
+			if((fp=fopen(filename,"w+")) == 0){
+				fprintf(stderr,"open thread file error\n");
+				exit(1);
+			}
+			threads[i].fp = fp;
+		}
 		//cooper
     }
 
