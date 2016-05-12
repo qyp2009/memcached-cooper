@@ -24,6 +24,10 @@
 #include "sasl_defs.h"
 
 //cooper
+typedef struct {
+	char id[20];	//int64,19bytes string
+	int len,alen;
+}cooper_skb_id;
 
 typedef signed int s32;
 typedef long long s64;
@@ -413,7 +417,7 @@ struct conn {
 	int skb_id_flag;
 	char *rcurr_cmd_end;
 	int rbytes_skb;
-	char tstamp_skb[36];
+	cooper_skb_id skb_id;
 	cooper_ktime_t tstamp_req;
 	//cooper
 

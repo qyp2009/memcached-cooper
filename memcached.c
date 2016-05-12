@@ -60,6 +60,8 @@
 void delete_skb_id_alen(conn *c, char *buf, int alength);
 void delete_skb_id_len(conn *c, char *buf, int length);
 int is_finger_print(char *buf);
+void get_skb_id(conn *c, char *buf);
+int atoi_length5(char *str_len);
 int length_with_skb_id(conn *c, char *buf,int length);
 int memmove_with_skb_id(conn *c, char *dest, char *source, int length);
 
@@ -466,6 +468,8 @@ conn *conn_new(const int sfd, enum conn_states init_state,
 	c->skb_id_flag=(settings.skb_id_flag==true ? 1:0);
 	c->rbytes_skb = 0;
 	c->rcurr_cmd_end = c->rbuf;
+	c->skb_id.id[0]='\0';
+	c->skb_id.len=0;
 	//cooper
     c->wcurr = c->wbuf;
     c->rcurr = c->rbuf;
@@ -3682,6 +3686,7 @@ static int try_read_command(conn *c) {
 		}else{
 			c->rbytes_skb -= (cont - c->rcurr);
 			c->rbytes -= (c->rcurr_cmd_end - c->rcurr) +el_count;
+			c->skb_id.len -= el_count;
 			c->rcurr = cont;
 			assert(c->rcurr <= (c->rbuf + c->rsize*SKB_EXPAND_TIMES));
 		}	
@@ -3780,8 +3785,12 @@ static enum try_read_result try_read_network(conn *c) {
                     fprintf(stderr, "Couldn't realloc input buffer\n");
                 }
                 c->rbytes = 0; /* ignore what we read */
+				//cooper
 				c->rbytes_skb = 0; //cooper//
-                out_string(c, "SERVER_ERROR out of memory reading request");
+                c->skb_id.id[0]='\0';
+				c->skb_id.len=0;
+				//cooper
+				out_string(c, "SERVER_ERROR out of memory reading request");
                 c->write_and_go = conn_closing;
                 return READ_MEMORY_ERROR;
             }
@@ -3958,14 +3967,12 @@ int is_finger_print(char *buf){
 }
 
 int memmove_with_skb_id(conn *c, char *dest, char *source, int length){
-	int i,j,k;
-	int skb_begin;
-	int skb_id_flag;
-	char *d=dest, *s=source, *ts=c->tstamp_skb;
+	char *d=dest, *s=source;
+	int i,len,tocopy,need;
+	//char *ts=c->tstamp_skb;
+	char *bc, *ts=c->skb_id.id;
 
-	i=j=0;
-	skb_begin=0;
-	skb_id_flag=0;
+	i=len=tocopy=need=0;
 
 	if(s[0]!='{'){
         if (settings.verbose > 0) { 
@@ -3974,69 +3981,50 @@ int memmove_with_skb_id(conn *c, char *dest, char *source, int length){
 		}
 	}
 
-	if(c->rbytes == c->rbytes_skb) {
-		memmove(dest,source,length);
-		return length;
-	}
-
-	while(j<length){
-		if(!skb_id_flag){	//data
-			if(s[i]=='{' && is_finger_print(s+i+1) ){
-				/*if(j < data_begin ){
-					memcpy(buf+j, buf+data_begin, i - data_begin);
-					j += i - data_begin;
-				}*/
-				
-				skb_begin=i+5;
-				skb_id_flag = 1;
-				
-				i+=5;
-			}else{
-				if(d+j != s+i)
-					d[j] = s[i];
-				i++;
-				j++;
+	while(len<length){
+		if(s[i]=='{' && is_finger_print(s+i+1) && s[i+30]=='}'){
+			get_skb_id(c, s+i);
+            if (settings.verbose > 0) {
+				//fprintf(stderr,"skb_for_cmd skb_id: %s\n",ts);
+				fprintf(c->thread->fp,"skb_for_data skb_id: %s\n",ts);
 			}
-		}else{				//skb_id
-			if(s[i]==(char)0x84 &&  is_finger_print(s+i) ) {
-                if (settings.verbose > 0) {
-					k = i - skb_begin;
-					snprintf(ts,50,"%*.*s",k,k,s+skb_begin);
-					//fprintf(stderr,"skb_for_data skb_id: %s\n",ts);
-					fprintf(c->thread->fp,"skb_for_data skb_id: %s\n",ts);
-				}
-				skb_id_flag =0;
-				
-				i+=5;
-			}else{
-				i++;
+			
+			need = length - len;
+			tocopy = c->skb_id.len <= need ? c->skb_id.len : need ;
+			memmove(d+len, s+i+31, tocopy);
+			i += 31+tocopy;
+			len += tocopy;
+			c->skb_id.len -= tocopy;
+		}else{
+			need = length - len;
+			tocopy = c->skb_id.len <= need ? c->skb_id.len : need ;
+			if(c->skb_id.len > 0){	//remain of skb with skb_id
+				tocopy = c->skb_id.len <= need ? c->skb_id.len : need ;
+			}else{					//no skb_id
+				bc = memchr(s+i, '{', need);
+				tocopy = ( bc == NULL ? need : bc -(s+i) );
 			}
+			if(d+len!=s+i)
+				memmove(d+len, s+i, tocopy);
+			i += tocopy;
+			len += tocopy;
+			c->skb_id.len -= tocopy;
 		}
 	}
-	/*
-	if(j < data_begin ){
-		memcpy(buf+j, buf+data_begin, i - data_begin);
-		j += i - data_begin;
-	}
-	*/
-	d[j]='\0';
 		
     if (settings.verbose > 2) {
 		fprintf(stderr, "data_with_skb:%*.*s\n",i,i,s);
-		fprintf(stderr, "data_no_skb:%*.*s\n",j,j,d);
+		fprintf(stderr, "data_no_skb:%*.*s\n",len,len,d);
 	}
 	return i;
 }
 
 void delete_skb_id_len(conn *c, char *buf, int length){	
-	int i,j,k;
-	int skb_begin;
-	int skb_id_flag;
-	char *ts=c->tstamp_skb;
+	int i,len,tocopy,need;
+	//char *ts=c->tstamp_skb;
+	char *bc,*ts=c->skb_id.id;
 
-	i=j=0;
-	skb_begin=0;
-	skb_id_flag=0;
+	i=len=tocopy=need=0;
     
 	if (settings.verbose > 2)
 		fprintf(stderr, "data_with_skb:%s\n", buf);
@@ -4047,62 +4035,48 @@ void delete_skb_id_len(conn *c, char *buf, int length){
 			fprintf(c->thread->fp, "skb_for_data skb_id: %s\n", ts);
 		}
 	}
-	while(j<length){
-		if(!skb_id_flag){	//data
-			if(buf[i]=='{' && is_finger_print(buf+i+1) ){
-				/*if(j < data_begin ){
-					memcpy(buf+j, buf+data_begin, i - data_begin);
-					j += i - data_begin;
-				}*/
-				
-				skb_begin=i+5;
-				skb_id_flag = 1;
-				
-				i+=5;
-			}else{
-				if(j<i)
-					buf[j] = buf[i];
-				i++;
-				j++;
+	while(len<length){
+		if(buf[i]=='{' && is_finger_print(buf+i+1) && buf[i+30]=='}'){
+			get_skb_id(c, buf+i);
+            if (settings.verbose > 0) {
+				//fprintf(stderr,"skb_for_cmd skb_id: %s\n",ts);
+				fprintf(c->thread->fp,"skb_for_data skb_id: %s\n",ts);
 			}
-		}else{				//skb_id
-			if(buf[i]==(char)0x84 &&  is_finger_print(buf+i) ) {
-                if (settings.verbose > 0) {
-					k = i - skb_begin;
-					snprintf(ts,50,"%*.*s",k,k,buf+skb_begin);
-					//fprintf(stderr,"skb_for_data skb_id: %s\n",ts);
-					fprintf(c->thread->fp,"skb_for_data skb_id: %s\n",ts);
-				}
-				skb_id_flag =0;
-				
-				i+=5;
-			}else{
-				i++;
+			
+			need = length - len;
+			tocopy = c->skb_id.len <= need ? c->skb_id.len : need ;
+			memmove(buf+len, buf+i+31, tocopy);
+			i += 31+tocopy;
+			len += tocopy;
+			c->skb_id.len -= tocopy;
+		}else{
+			need = length - len;
+			if(c->skb_id.len > 0){	//remain of skb with skb_id
+				tocopy = c->skb_id.len <= need ? c->skb_id.len : need ;
+			}else{					//no skb_id
+				bc = memchr(buf+i, '{', need);
+				tocopy = ( bc == NULL ? need : bc -(buf+i) );
 			}
+			if(len <i)
+				memmove(buf+len, buf+i, tocopy);
+			i += tocopy;
+			len += tocopy;
+			c->skb_id.len -= tocopy;
 		}
 	}
-	/*
-	if(j < data_begin ){
-		memcpy(buf+j, buf+data_begin, i - data_begin);
-		j += i - data_begin;
+    if (settings.verbose > 2){
+		fprintf(stderr, "data_no_skb:%*.*s\n", len,len,buf);
 	}
-	*/
-	buf[j]='\0';
-    if (settings.verbose > 2)
-		fprintf(stderr, "data_no_skb:%*.*s\n", j,j,buf);
 }
 //source:{xxxx1423173827359xxxx}abcdefgh{xxxx1423173827360xxxx}mnopqrst
 //dest:abcdefghmnopqrst
 //delete skb id in first cmd of c->rcurr
 void delete_skb_id_alen(conn *c, char *buf, int alength){	
-	int i,j,k;
-	int skb_begin;
-	int skb_id_flag;
-	char *ts=c->tstamp_skb;
+	int i,len,tocopy,need;
+	//char *ts=c->tstamp_skb;
+	char *bc, *ts=c->skb_id.id;
 
-	i=j=0;
-	skb_begin=0;
-	skb_id_flag=0;
+	i=len=tocopy=need=0;
 
 	if(buf[0]!='{'){
         if (settings.verbose > 0){ 
@@ -4111,51 +4085,39 @@ void delete_skb_id_alen(conn *c, char *buf, int alength){
 		}
 	}
 	
-	if(c->rbytes == c->rbytes_skb) return;
-
 	while(i<alength){
-		if(!skb_id_flag){	//data
-			if(buf[i]=='{' && is_finger_print(buf+i+1) ){
-				/*if(j < data_begin ){
-					memcpy(buf+j, buf+data_begin, i - data_begin);
-					j += i - data_begin;
-				}*/
-				
-				skb_begin=i+5;
-				skb_id_flag = 1;
-				
-				i+=5;
-			}else{
-				if(j<i)
-					buf[j] = buf[i];
-				i++;
-				j++;
+		if(buf[i]=='{' && is_finger_print(buf+i+1) && buf[i+30]=='}'){
+			get_skb_id(c, buf+i);
+            if (settings.verbose > 0) {
+				//fprintf(stderr,"skb_for_cmd skb_id: %s\n",ts);
+				fprintf(c->thread->fp,"skb_for_cmd skb_id: %s\n",ts);
 			}
-		}else{				//skb_id
-			if(buf[i]==(char)0x84 &&  is_finger_print(buf+i) ) {
-                if (settings.verbose > 0) {
-					k = i - skb_begin;
-					snprintf(ts,50,"%*.*s",k,k,buf+skb_begin);
-					//fprintf(stderr,"skb_for_cmd skb_id: %s\n",ts);
-					fprintf(c->thread->fp,"skb_for_cmd skb_id: %s\n",ts);
-				}
-				skb_id_flag =0;
-				
-				i+=5;
-			}else{
-				i++;
+			
+			need = alength - i - 31;
+			tocopy = c->skb_id.len <= need ? c->skb_id.len : need ;
+			memmove(buf+len, buf+i+31, tocopy);
+			i += 31+tocopy;
+			len += tocopy;
+			c->skb_id.len -= tocopy;
+		}else{
+			need = alength - i;
+			if(c->skb_id.len > 0){	//remain of skb with skb_id
+				tocopy = c->skb_id.len <= need ? c->skb_id.len : need ;
+			}else{					//no skb_id
+				bc = memchr(buf+i, '{', need);
+				tocopy = ( bc == NULL ? need : bc -(buf+i) );
 			}
+			if(len <i)
+				memmove(buf+len, buf+i, tocopy);
+			i += tocopy;
+			len += tocopy;
+			c->skb_id.len -= tocopy;
 		}
 	}
-	/*
-	if(j < data_begin ){
-		memcpy(buf+j, buf+data_begin, i - data_begin);
-		j += i - data_begin;
-	}
-	*/
-	if(j < alength){
-		buf[j]='\0';
-		c->rcurr_cmd_end = buf + j;
+	
+	if(len < alength){
+		buf[len]='\0';
+		c->rcurr_cmd_end = buf + len;
 	}
     if (settings.verbose > 0) {
 		//fprintf(stderr, "cmd: %s\n", buf);
@@ -4163,31 +4125,51 @@ void delete_skb_id_alen(conn *c, char *buf, int alength){
 	}
 }
 
+int atoi_length5(char *str_len){
+    char slen[6];
+    strncpy(slen, str_len, 5); 
+    slen[5]='\0';
+    return atoi(slen);
+}
+
+void get_skb_id(conn *c, char *buf){
+	strncpy(c->skb_id.id, buf+5, 19);
+	c->skb_id.id[19]	= '\0';
+	c->skb_id.alen = c->skb_id.len		= atoi_length5(buf+25);
+}
+
 int length_with_skb_id(conn *c, char *buf, int length){
-	int i,len;
-	int skb_id_flag=0;
-	
+	int i,len,skb_len;
+	char *bc;
+	//char id[26];	
 	/*if(settings.verbose > 0){
 		fprintf(c->thread->fp, "length_id timestamp(begin): %lld\n", get_timestamp(&(c->tstamp_req)));
 	}*/
 	i=len=0;
+	
+	//fprintf(stderr,"length:%d\n",length);
 	while(len<length){
-		if(!skb_id_flag){ 
-			if(buf[i]=='{' && is_finger_print(buf+i+1) ){
-				i+=5;
-				skb_id_flag = 1;
-			}else{
-				len++;
-				i++;
-			}
+		if(buf[i]=='{' && is_finger_print(buf+i+1) && buf[i+30]=='}' ){
+			//strncpy(id, buf+5, 25);
+			//id[25] = '\0';
+			skb_len = atoi_length5(buf+i+25);
+			//fprintf(c->thread->fp,"skb:%s,len:%d\n",id,skb_len);
+			len += skb_len;
+			i	+= skb_len+31;
 		}else{
-			if(buf[i]==(char)0x84 &&  is_finger_print(buf+i) ) {
-				//printf("%*.*s\n",k,k,buf+i);
-				i += 5;
-				skb_id_flag =0;
+			//fprintf(c->thread->fp,"error:len:%d,length:%d\n",len,length);
+			//fprintf(stderr,"%s\n",buf+i);
+			//fprintf(stderr,"length_with_skb_id error\n");
+			//exit(1);
+			 
+			bc = memchr(buf+i, '{', length - len);
+			if(bc == NULL){
+				skb_len = length - len;
 			}else{
-				i++;
+				skb_len = bc - (buf +i);
 			}
+			len += skb_len;
+			i += skb_len;
 		}
 	}
 	/*if(settings.verbose > 0){
@@ -4377,32 +4359,24 @@ static void drive_machine(conn *c) {
 					int tocopy_skb;
 					if (settings.verbose > 0){
 						//fprintf(stderr, "skb_for_data skb_id: %s\n", c->tstamp_skb);
-						fprintf(c->thread->fp, "skb_for_data skb_id: %s\n", c->tstamp_skb);
+						fprintf(c->thread->fp, "skb_for_data skb_id: %s\n", c->skb_id.id);
 					}
-					//no skb_id
-					if(c->rbytes == c->rbytes_skb){
-						tocopy_skb = tocopy;
-						memmove(c->ritem, c->rcurr, tocopy);	
-					}else{//exist skb_id
-						tocopy_skb = length_with_skb_id(c, c->rcurr, tocopy);
-						//no skb_id in tocopy extent
-						if(tocopy == tocopy_skb){
-							memmove(c->ritem, c->rcurr, tocopy);
-						}else{
-							if(settings.verbose > 0){
-								fprintf(c->thread->fp, "delete_id_move timestamp(begin): %lld\n", get_timestamp(&(c->tstamp_req)));
-							}
-							memmove_with_skb_id(c, c->ritem, c->rcurr, tocopy);
-							if(settings.verbose > 0){
-								fprintf(c->thread->fp, "delete_id_move timestamp(end): %lld\n", get_timestamp(&(c->tstamp_req)));
-							}
-						}
+					
+					if(settings.verbose > 0){
+						fprintf(c->thread->fp, "delete_id_move timestamp(begin): %lld\n", get_timestamp(&(c->tstamp_req)));
+					}
+					tocopy_skb = memmove_with_skb_id(c, c->ritem, c->rcurr, tocopy);
+					if(settings.verbose > 0){
+						fprintf(c->thread->fp, "delete_id_move timestamp(end): %lld\n", get_timestamp(&(c->tstamp_req)));
 					}
 					c->ritem += tocopy;
 					c->rlbytes -= tocopy;
 					c->rcurr += tocopy_skb;
 					c->rbytes -= tocopy;
 					c->rbytes_skb -= tocopy_skb;
+					//if((c->rbytes_skb - c->rbytes) % 31){
+					//	fprintf(stderr,"error %d,%d %fx\n",c->rbytes, c->rbytes_skb,(float)(c->rbytes_skb - c->rbytes)/31);
+					//}
 				}	
 				//cooper
 				
@@ -5014,6 +4988,7 @@ static void usage(void) {
            "              or by using -l multiple times\n"
 
            "-d            run as a daemon\n"
+           "-e            cooper add, if on, skb_id_flag=1\n"
            "-r            maximize core file limit\n"
            "-u <username> assume identity of <username> (only when run as root)\n"
            "-m <num>      max memory to use for items in megabytes (default: 64 MB)\n"
